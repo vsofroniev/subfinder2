@@ -1,8 +1,10 @@
 package main
 
 import (
+    "log"
+    "strings"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/subfinder/pkg/runner"
+	"github.com/vsofroniev/subfinder2/pkg/runner"
 )
 
 func main() {
@@ -14,7 +16,19 @@ func main() {
 		gologger.Fatalf("Could not create runner: %s\n", err)
 	}
 
-	err = runner.RunEnumeration()
+    ch, _ := runner.RunEnumeration()
+	uniqueMap := make(map[string]struct{})
+    for result := range ch{
+		subdomain := strings.ReplaceAll(strings.ToLower(result.Value), "*.", "")
+	    if _, ok := uniqueMap[subdomain]; ok {
+		    continue
+		}
+		uniqueMap[subdomain] = struct{}{}
+    }
+
+	for result := range uniqueMap {
+		log.Println(result)
+	}
 	if err != nil {
 		gologger.Fatalf("Could not run enumeration: %s\n", err)
 	}

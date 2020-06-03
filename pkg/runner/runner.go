@@ -8,6 +8,7 @@ import (
 
 	"github.com/projectdiscovery/subfinder/pkg/passive"
 	"github.com/projectdiscovery/subfinder/pkg/resolve"
+	"github.com/projectdiscovery/subfinder/pkg/subscraping"
 )
 
 // Runner is an instance of the subdomain enumeration
@@ -37,7 +38,7 @@ func NewRunner(options *Options) (*Runner, error) {
 }
 
 // RunEnumeration runs the subdomain enumeration flow on the targets specified
-func (r *Runner) RunEnumeration() error {
+func (r *Runner) RunEnumeration() (chan subscraping.Result, error) {
 	// Check if only a single domain is sent as input. Process the domain now.
 	if r.options.Domain != "" {
 		return r.EnumerateSingleDomain(r.options.Domain, r.options.Output, false)
@@ -47,23 +48,23 @@ func (r *Runner) RunEnumeration() error {
 	if r.options.DomainsFile != "" {
 		f, err := os.Open(r.options.DomainsFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		err = r.EnumerateMultipleDomains(f)
+		_, err = r.EnumerateMultipleDomains(f)
 		f.Close()
-		return err
+		return nil, err
 	}
 
 	// If we have STDIN input, treat it as multiple domains
 	if r.options.Stdin {
 		return r.EnumerateMultipleDomains(os.Stdin)
 	}
-	return nil
+	return nil, nil
 }
 
 // EnumerateMultipleDomains enumerates subdomains for multiple domains
 // We keep enumerating subdomains for a given domain until we reach an error
-func (r *Runner) EnumerateMultipleDomains(reader io.Reader) error {
+func (r *Runner) EnumerateMultipleDomains(reader io.Reader) (chan subscraping.Result, error) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		domain := scanner.Text()
@@ -76,16 +77,17 @@ func (r *Runner) EnumerateMultipleDomains(reader io.Reader) error {
 		// of creating a new output file for each domain. Else create a new file
 		// for each domain in the directory.
 		if r.options.Output != "" {
-			err = r.EnumerateSingleDomain(domain, r.options.Output, true)
+			return r.EnumerateSingleDomain(domain, r.options.Output, true)
 		} else if r.options.OutputDirectory != "" {
 			outputFile := path.Join(r.options.OutputDirectory, domain)
-			err = r.EnumerateSingleDomain(domain, outputFile, false)
+			return r.EnumerateSingleDomain(domain, outputFile, false)
 		} else {
-			err = r.EnumerateSingleDomain(domain, "", true)
+			return r.EnumerateSingleDomain(domain, "", true)
+
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
 }

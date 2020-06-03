@@ -13,7 +13,7 @@ import (
 )
 
 // EnumerateSingleDomain performs subdomain enumeration against a single domain
-func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) error {
+func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) (chan subscraping.Result, error) {
 	gologger.Infof("Enumerating subdomains for %s\n", domain)
 
 	// Get the API keys for sources from the configuration
@@ -34,6 +34,7 @@ func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) error
 
 	// Run the passive subdomain enumeration
 	passiveResults := r.passiveAgent.EnumerateSubdomains(domain, keys, r.options.Timeout, time.Duration(r.options.MaxEnumerationTime)*time.Minute)
+    return passiveResults, nil
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -70,7 +71,7 @@ func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) error
 					resolutionPool.Tasks <- subdomain
 				}
 
-				if !r.options.Verbose {
+				if !r.options.Silent {
 					gologger.Silentf("%s\n", subdomain)
 				}
 			}
@@ -155,7 +156,7 @@ func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) error
 		}
 		if err != nil {
 			gologger.Errorf("Could not create file %s for %s: %s\n", output, domain, err)
-			return err
+			return nil, err
 		}
 
 		// Write the output to the file depending upon user requirement
@@ -174,7 +175,7 @@ func (r *Runner) EnumerateSingleDomain(domain, output string, append bool) error
 			gologger.Errorf("Could not write results to file %s for %s: %s\n", output, domain, err)
 		}
 		file.Close()
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
